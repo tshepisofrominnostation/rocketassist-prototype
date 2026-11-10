@@ -173,13 +173,13 @@ function renderCases() {
     card.innerHTML = `
       <div class="flex items-center gap-2 mb-2">
         <span class="text-[10px] gold tracking-widest">0${i + 1}</span>
-        <span class="badge" style="background:rgba(217,164,65,.14);color:#e6c07c">${c.tag}</span>
+        <span class="badge" style="background:rgba(14,165,222,.12);color:#0b7ea8">${c.tag}</span>
       </div>
       <h3 class="text-[13.5px] font-semibold mb-3">${c.title}</h3>
       <div class="space-y-2.5 text-[12px] flex-1">
         ${rows.map(([k, v]) => `<div><p class="dim text-[10px] uppercase tracking-wide mb-0.5">${k}</p><p class="mut leading-relaxed">${v}</p></div>`).join("")}
       </div>
-      <button class="mt-4 w-full rounded-xl py-2 text-[12px] font-semibold" style="background:#2c2018;border:1px solid var(--line);color:#e6c07c">Run this in the prototype</button>`;
+      <button class="mt-4 w-full rounded-xl py-2 text-[12px] font-semibold" style="background:#eef4f8;border:1px solid var(--line);color:#0b7ea8">Run this in the prototype</button>`;
     card.querySelector("button").addEventListener("click", () => {
       showTab("prototype");
       $("#chat").innerHTML = "";
@@ -203,7 +203,7 @@ function renderHow() {
   steps.forEach(([title, body], i) => {
     const row = el("div", "flex gap-3");
     row.innerHTML = `
-      <div class="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold" style="background:#2c2018;color:#e6c07c;border:1px solid var(--line)">${i + 1}</div>
+      <div class="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold" style="background:#eef4f8;color:#0b7ea8;border:1px solid var(--line)">${i + 1}</div>
       <div class="min-w-0"><p class="text-[12.5px] font-medium ink">${title}</p><p class="text-[12px] mut leading-relaxed">${body}</p></div>`;
     box.appendChild(row);
   });
