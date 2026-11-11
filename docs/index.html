@@ -53,10 +53,10 @@
     </div>
     <div class="ml-auto flex items-center gap-2 flex-wrap justify-end">
       <span class="hidden sm:flex items-center gap-2 text-[11.5px] mut"><span class="dot"></span>Online</span>
-      <div class="flex items-center rounded-full p-0.5" style="background:var(--surface-2);border:1px solid var(--line)" role="tablist" aria-label="View">
-        <button id="tabCustomer" class="tab px-2.5 py-1 text-[11.5px]" aria-selected="true" role="tab">Customer</button>
-        <button id="tabAgent" class="tab px-2.5 py-1 text-[11.5px] relative" role="tab">Agent desk<span id="agentCount" hidden class="ml-1 badge v-escalate"></span></button>
-      </div>
+      <a href="./agent.html"
+        class="ghost px-3 py-1.5 text-[12px]">
+        Agent dashboard
+      </a>
       <button id="notesBtn" class="ghost px-3 py-1.5 text-[12px]">Project notes</button>
       <button id="analystBtn" class="ghost px-3 py-1.5 text-[12px]" aria-pressed="false">Behind the scenes</button>
       <button id="newChat" class="ghost px-3 py-1.5 text-[12px]">New chat</button>
@@ -79,16 +79,7 @@
   </div>
 </main>
 
-<main class="flex-1 w-full mx-auto max-w-5xl px-4 pb-28 pt-4" id="viewAgent" hidden>
-  <div class="flex items-baseline gap-2 mb-3">
-    <h2 class="text-[15px] font-bold">Agent desk</h2>
-    <p class="text-[11.5px] mut">Tickets the assistant handed over, with its suggested reply.</p>
-  </div>
-  <div class="grid gap-3 sm:grid-cols-[minmax(0,290px)_minmax(0,1fr)]">
-    <div id="queue" class="space-y-2 min-w-0"></div>
-    <div id="ticketDetail" class="min-w-0"></div>
-  </div>
-</main>
+
 
 <form id="composer" class="fixed bottom-0 inset-x-0 border-t backdrop-blur" style="border-color:var(--line);background:rgba(255,255,255,.92)">
   <div class="mx-auto max-w-3xl px-4 py-3">
@@ -162,7 +153,6 @@
 <script src="engine.js"></script>
 <script src="dialog.js"></script>
 <script src="store.js"></script>
-<script src="agent.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

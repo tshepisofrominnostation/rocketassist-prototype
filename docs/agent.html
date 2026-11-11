@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RocketAssist — Agent Dashboard</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --bg: #f4f8fb;
+      --surface: #ffffff;
+      --surface-2: #eef4f8;
+      --line: #dbe6ee;
+      --ink: #243746;
+      --mut: #5b7285;
+      --dim: #5f7688;
+      --blue: #0ea5de;
+      --blue-deep: #0b7ea8;
+      --blue-dark: #0a7396;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    body {
+      font-family: ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+    }
+
+    .card, .card-2 {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      min-width: 0;
+    }
+
+    .card-2 {
+      border-radius: 12px;
+    }
+
+    .mut { color: var(--mut); }
+    .dim { color: var(--dim); }
+
+    .ghost {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 999px;
+    }
+
+    .ghost:hover {
+      background: var(--surface-2);
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .v-convert {
+      background: rgba(14,165,222,.14);
+      color: #0a6f94;
+    }
+
+    .v-escalate {
+      background: rgba(242,118,34,.14);
+      color: #a8480c;
+    }
+
+    .meta {
+      font-size: 11px;
+      color: var(--dim);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b"
+    style="border-color:var(--line);background:var(--surface)">
+
+    <div class="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3 flex-wrap">
+
+      <div class="h-9 w-9 rounded-xl flex items-center justify-center"
+        style="background:var(--blue)">
+        <span class="text-white font-bold">R</span>
+      </div>
+
+      <div>
+        <h1 class="text-[15px] font-bold">RocketAssist</h1>
+        <p class="text-[11.5px] mut">RocketNet support · Agent dashboard</p>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./index.html"
+          class="ghost px-3 py-2 text-[12px]">
+          Customer page
+        </a>
+
+        <span class="badge v-convert">Agent desk</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Agent dashboard -->
+  <main class="flex-1 w-full mx-auto max-w-5xl px-4 pb-12 pt-6">
+
+    <div class="flex items-baseline gap-2 mb-4 flex-wrap">
+      <h2 class="text-[17px] font-bold">Agent dashboard</h2>
+      <p class="text-[12px] mut">
+        Manage customer handovers and support requests.
+      </p>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-[minmax(0,290px)_minmax(0,1fr)]">
+
+      <!-- Ticket queue -->
+      <section>
+        <h3 class="text-[12px] font-bold mb-2">Customer tickets</h3>
+        <div id="queue" class="space-y-2 min-w-0"></div>
+      </section>
+
+      <!-- Ticket details -->
+      <section>
+        <h3 class="text-[12px] font-bold mb-2">Ticket details</h3>
+        <div id="ticketDetail" class="min-w-0"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="store.js"></script>
+  <script src="agent.js"></script>
+
+</body>
+</html>
