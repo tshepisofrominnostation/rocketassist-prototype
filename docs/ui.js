@@ -1,290 +1,274 @@
-/* RocketAssist prototype UI: tabs, chat playback and the analyst panel. */
+/* RocketAssist — assistant behaviour. One conversation, persisted, with the
+   reasoning available on demand instead of shouting over the chat. */
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const KEY = "rocketassist.v2";
 
-const $ = (sel) => document.querySelector(sel);
-const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html !== undefined) n.innerHTML = html; return n; };
+  let STATE = window.RocketDialog.newState();
+  let MSG = [];            // {who, text, meta, card}
+  let LAST = null;         // last analysis, for the drawer
+  let busy = false;
 
-const METRICS = { handled: 0, deflect: 0, convert: 0, escalate: 0, replyMs: 0 };
-let busy = false;
+  /* ---------- rendering ---------- */
+  function bubble(m) {
+    const wrap = document.createElement("div");
+    wrap.className = m.who === "user" ? "flex justify-end" : "flex justify-start";
+    const col = document.createElement("div");
+    col.className = "max-w-[88%] space-y-1";
 
-/* ---------- tabs ---------- */
-const TABS = ["prototype", "how", "cases", "eval"];
-function showTab(name) {
-  TABS.forEach((t) => {
-    const btn = document.querySelector(`[data-tab="${t}"]`);
-    const panel = document.getElementById(`p-${t}`);
-    const on = t === name;
-    if (btn) btn.setAttribute("aria-selected", on ? "true" : "false");
-    if (panel) panel.classList.toggle("hide", !on);
-  });
-  if (history.replaceState) history.replaceState(null, "", `#${name}`);
-}
-document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+    const b = document.createElement("div");
+    b.className = (m.who === "user" ? "bubble-user" : "bubble-bot") +
+      " rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap";
+    b.textContent = m.text;
+    col.appendChild(b);
 
-/* ---------- chat ---------- */
-function bubble(text, who) {
-  const row = el("div", `flex ${who === "user" ? "justify-end" : "justify-start"}`);
-  const b = el("div", `max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed ${who === "user" ? "bubble-user" : "bubble-bot"}`);
-  b.textContent = text;
-  row.appendChild(b);
-  $("#chat").appendChild(row);
-  $("#chat").scrollTop = $("#chat").scrollHeight;
-  return row;
-}
-
-function typing() {
-  const row = el("div", "flex justify-start");
-  const b = el("div", "bubble-bot rounded-2xl px-3.5 py-2.5 flex gap-1 items-center");
-  b.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-  row.appendChild(b);
-  $("#chat").appendChild(row);
-  $("#chat").scrollTop = $("#chat").scrollHeight;
-  return row;
-}
-
-function stamp() {
-  const d = new Date();
-  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
-}
-
-function renderAnalyst(r) {
-  const v = $("#verdict");
-  v.className = `badge v-${r.decision.verdict}`;
-  v.textContent = r.decision.verdict === "deflect" ? "answered" : r.decision.verdict === "convert" ? "booked" : "handed over";
-
-  $("#confidence").classList.remove("hide");
-  const pct = Math.round(r.intent.confidence * 100);
-  $("#conf-val").textContent = `${pct}% · ${r.intent.label}`;
-  $("#conf-bar").style.width = `${pct}%`;
-
-  const trace = $("#trace");
-  trace.innerHTML = "";
-  r.trace.forEach((s) => {
-    const li = el("li", "text-[12px]");
-    li.innerHTML = `<p class="gold text-[10.5px] uppercase tracking-wide mb-0.5">${s.step}</p><p class="mut leading-relaxed">${s.detail}</p>`;
-    trace.appendChild(li);
-  });
-
-  const guards = $("#guards");
-  guards.innerHTML = "";
-  r.guardrails.forEach((g) => {
-    const li = el("li", "flex gap-2");
-    const mark = g.status === "pass" ? "✓" : g.status === "block" ? "✕" : "→";
-    const cls = g.status === "pass" ? "g-pass" : g.status === "block" ? "g-block" : "g-escalate";
-    li.innerHTML = `<span class="${cls} font-bold w-3 shrink-0">${mark}</span><span><span class="ink">${g.name}</span><span class="dim"> — ${g.detail}</span></span>`;
-    guards.appendChild(li);
-  });
-
-  const kb = $("#knowledge");
-  kb.innerHTML = "";
-  r.knowledge.forEach((k) => {
-    const li = el("li", "");
-    li.innerHTML = `<span class="ink">${k.title}</span><span class="dim"> — ${k.detail}</span>`;
-    kb.appendChild(li);
-  });
-
-  const card = $("#handover-card");
-  if (r.handover) {
-    card.classList.remove("hide");
-    $("#handover").innerHTML = `
-      <p class="text-[11px] mut mb-2">The agent receives this, so the customer never repeats themselves.</p>
-      <div class="space-y-1.5 text-[12px]">
-        <p><span class="dim">Team</span> <span class="ink">${r.handover.owner}</span></p>
-        <p><span class="dim">Priority</span> <span class="${r.handover.priority === "Urgent" ? "g-block" : "ink"}">${r.handover.priority}</span></p>
-        <p class="mut leading-relaxed">${r.handover.summary}</p>
-      </div>`;
-  } else {
-    card.classList.add("hide");
-  }
-}
-
-function renderMetrics() {
-  const avg = METRICS.handled ? (METRICS.replyMs / METRICS.handled / 1000).toFixed(1) : "0.0";
-  const box = $("#metrics");
-  box.innerHTML = "";
-  [
-    ["Messages handled", METRICS.handled, "ink"],
-    ["Answered without a person", METRICS.deflect, "olive"],
-    ["Enquiries booked", METRICS.convert, "gold"],
-    ["Handed to a person", METRICS.escalate, "terra"],
-  ].forEach(([label, val, cls]) => {
-    const c = el("div", "card px-4 py-3");
-    c.innerHTML = `<p class="text-[20px] font-semibold ${cls} leading-none">${val}</p><p class="text-[10.5px] mut mt-1">${label}</p>`;
-    box.appendChild(c);
-  });
-  const note = el("p", "text-[10.5px] dim col-span-2 sm:col-span-4");
-  note.textContent = `Average simulated reply time ${avg}s. These counters describe this demonstration session only, not RocketNet's support operation.`;
-  box.appendChild(note);
-}
-
-async function send(text) {
-  if (busy || !text.trim()) return;
-  busy = true;
-  $("#msg").value = "";
-  bubble(text, "user");
-  const think = typing();
-
-  const started = performance.now();
-  const result = window.RocketAssist.analyse(text);
-
-  await new Promise((r) => setTimeout(r, 620));
-  think.remove();
-
-  for (let i = 0; i < result.reply.length; i++) {
-    bubble(result.reply[i], "bot");
-    await new Promise((r) => setTimeout(r, 230));
+    if (m.meta && m.who === "bot") {
+      const meta = document.createElement("button");
+      meta.className = "meta hover:underline";
+      meta.textContent = m.meta.confidence + "% confident · " + (m.meta.intent || m.meta.route);
+      meta.addEventListener("click", openDrawer);
+      col.appendChild(meta);
+    }
+    if (m.card) col.appendChild(cardEl(m.card));
+    wrap.appendChild(col);
+    return wrap;
   }
 
-  METRICS.handled += 1;
-  METRICS.replyMs += performance.now() - started + 900;
-  METRICS[result.decision.verdict] += 1;
+  function cardEl(card) {
+    const d = card.data || {};
+    const el = document.createElement("div");
+    el.className = "card mt-2 p-3.5";
+    el.innerHTML =
+      '<div class="flex items-center gap-2 mb-1.5">' +
+        '<span class="chip v-escalate">Passed to a person</span>' +
+        (d.priority ? '<span class="meta">' + esc(d.priority) + ' priority</span>' : "") +
+      "</div>" +
+      '<p class="text-[12.5px] font-semibold">' + esc(d.owner || d.team || "Support team") + "</p>" +
+      (d.ref ? '<p class="text-[11.5px] mut mt-0.5">Reference ' + esc(d.ref) + "</p>" : "") +
+      (d.summary ? '<p class="text-[12px] mut mt-2 leading-relaxed">' + esc(d.summary) + "</p>" : "") +
+      '<p class="text-[11px] dim mt-2">The agent receives this, so you won\'t repeat yourself.</p>';
+    return el;
+  }
 
-  renderAnalyst(result);
-  renderMetrics();
-  busy = false;
-}
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-/* ---------- scenarios ---------- */
-function renderScenarios() {
-  const box = $("#scenarios");
-  box.innerHTML = "";
-  USE_CASES.forEach((c) => {
-    const b = el("button", "chip", c.tag + " · " + c.id);
-    b.addEventListener("click", () => send(c.message));
-    box.appendChild(b);
-  });
-  const human = el("button", "chip", "asks for a person");
-  human.addEventListener("click", () => send("I want to speak to an actual human please"));
-  box.appendChild(human);
-}
+  function paint() {
+    const chat = $("#chat");
+    chat.innerHTML = "";
+    MSG.forEach((m) => chat.appendChild(bubble(m)));
+    scrollDown();
+  }
 
-/* ---------- use cases ---------- */
-function renderCases() {
-  const box = $("#cases");
-  box.innerHTML = "";
-  USE_CASES.forEach((c, i) => {
-    const card = el("div", "card p-5 flex flex-col");
-    const rows = [
-      ["The situation", c.situation],
-      ["What the customer provides", c.provides],
-      ["What the AI does", c.ai],
-      ["Expected outcome", c.outcome],
-      ["When a person takes over", c.human],
+  function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: reduce ? "auto" : "smooth" }); }
+
+  function typing() {
+    const t = document.createElement("div");
+    t.id = "typing";
+    t.className = "flex justify-start";
+    t.innerHTML = '<div class="bubble-bot rounded-2xl px-4 py-3 text-[13px]"><span class="typing"><i></i><i></i><i></i></span></div>';
+    $("#chat").appendChild(t);
+    scrollDown();
+  }
+  function untype() { const t = $("#typing"); if (t) t.remove(); }
+
+  /* ---------- conversation ---------- */
+  async function send(text) {
+    const clean = String(text || "").trim();
+    if (!clean || busy) return;
+    busy = true;
+    MSG.push({ who: "user", text: clean });
+    paint();
+    save();  // persist immediately: a reload mid-reply must not lose the question
+    $("#quick").innerHTML = "";
+    $("#msg").value = "";
+    autosize();
+
+    typing();
+    const res = window.RocketDialog.respond(STATE, clean);
+    STATE = res.state;
+    if (res.result) LAST = res.result;
+    await wait(reduce ? 80 : 380);
+    untype();
+
+    for (const line of res.say) {
+      MSG.push({ who: "bot", text: "" });
+      const node = bubble(MSG[MSG.length - 1]);
+      node.querySelector(".bubble-bot").dataset.stream = "1";
+      $("#chat").appendChild(node);
+      await stream(node.querySelector(".bubble-bot"), line);
+      MSG[MSG.length - 1].text = line;
+      if (res.meta) MSG[MSG.length - 1].meta = res.meta;
+      save();  // keep the transcript as it lands, not only at the end
+    }
+    if (res.card) { MSG.push({ who: "bot", text: "", card: res.card }); $("#chat").appendChild(bubble(MSG[MSG.length - 1])); }
+
+    paint();
+    paintQuick(res.quick || []);
+    save();
+    busy = false;
+  }
+
+  function stream(node, text) {
+    return new Promise((resolve) => {
+      if (reduce) { node.textContent = text; return resolve(); }
+      let i = 0;
+      const step = Math.max(1, Math.round(text.length / 22));
+      const t = setInterval(() => {
+        i += step;
+        node.textContent = text.slice(0, i);
+        if (i % (step * 4) === 0) scrollDown();
+        if (i >= text.length) { clearInterval(t); node.textContent = text; resolve(); }
+      }, 10);
+    });
+  }
+
+  function paintQuick(list) {
+    const wrap = $("#quick");
+    wrap.innerHTML = "";
+    list.forEach((q) => {
+      const b = document.createElement("button");
+      b.className = "ghost px-3 py-1.5 text-[12.5px]";
+      b.textContent = q.label;
+      b.addEventListener("click", () => send(String(q.send)));
+      wrap.appendChild(b);
+    });
+  }
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* ---------- behind the scenes ---------- */
+  function openDrawer() {
+    const d = $("#drawer"), body = $("#drawerBody");
+    d.hidden = false;
+    $("#analystBtn").setAttribute("aria-pressed", "true");
+    if (!LAST) { body.innerHTML = '<p class="text-[13px] mut">Send a message and I\'ll show how it was handled.</p>'; return; }
+    const r = LAST;
+    body.innerHTML =
+      '<div class="card p-3.5"><p class="text-[11px] dim uppercase tracking-wide">Read as</p>' +
+        '<p class="text-[14px] font-semibold mt-0.5">' + esc(r.intent.label) + " · " + Math.round(r.intent.confidence * 100) + "%</p>" +
+        '<p class="text-[12px] mut mt-1">' + esc(r.decision.reason) + "</p></div>" +
+      (r.trace || []).map((t) =>
+        '<div class="card p-3.5"><p class="text-[11px] font-bold blue">' + esc(t.step) + '</p>' +
+        '<p class="text-[12px] mut mt-1 leading-relaxed">' + esc(t.detail) + "</p></div>").join("") +
+      '<div class="card p-3.5"><p class="text-[11px] font-bold ink mb-2">Guardrails</p>' +
+        (r.guardrails || []).map((g) =>
+          '<div class="flex items-start gap-2 py-1"><span class="chip ' + (g.status === "pass" ? "v-deflect" : "v-escalate") + '">' + esc(g.status) + "</span>" +
+          '<span class="text-[11.5px] mut">' + esc(g.name) + "</span></div>").join("") + "</div>";
+  }
+  function closeDrawer() { $("#drawer").hidden = true; $("#analystBtn").setAttribute("aria-pressed", "false"); }
+
+  /* ---------- project notes: use cases + evaluation ---------- */
+  function openNotes() {
+    const box = $("#casesBox");
+    box.innerHTML = (typeof USE_CASES !== "undefined" ? USE_CASES : []).map((c) =>
+      '<div class="card p-3.5">' +
+        '<div class="flex items-center gap-2 mb-1"><span class="chip">' + esc(c.tag) + '</span><span class="meta">' + esc(c.from || "") + '</span></div>' +
+        '<p class="text-[13px] font-semibold">' + esc(c.title) + '</p>' +
+        field("Situation", c.situation) + field("What the customer gives", c.provides) +
+        field("What the assistant does", c.ai) + field("Expected outcome", c.outcome) +
+        field("When a person takes over", c.human) +
+        '<button class="ghost px-3 py-1.5 text-[12px] mt-2" data-play="' + esc(c.message) + '">Play this in the chat</button>' +
+      "</div>").join("");
+
+    const E = typeof EVALUATION !== "undefined" ? EVALUATION : null;
+    const list = (title, rows) => rows && rows.length
+      ? '<div class="card p-3.5"><p class="text-[11px] font-bold blue uppercase tracking-wide">' + title + "</p>" +
+        rows.map((r) => '<p class="text-[12.5px] mt-1.5"><span class="font-semibold">' + esc(r.title || r) + "</span>" +
+          (r.body ? ' <span class="mut">' + esc(r.body) + "</span>" : "") + "</p>").join("") + "</div>"
+      : "";
+    $("#evalBox").innerHTML = E
+      ? list("Benefits", E.benefits) + list("Limitations", E.limitations) + list("Ethical and privacy", E.ethics) +
+        '<div class="card p-3.5"><p class="text-[11px] font-bold blue uppercase tracking-wide">Human oversight</p><ul class="mt-1.5 space-y-1 list-disc pl-4">' +
+        (E.oversight || []).map((o) => '<li class="text-[12.5px] mut">' + esc(o) + "</li>").join("") + "</ul></div>" +
+        '<div class="card p-3.5"><p class="text-[11px] font-bold blue uppercase tracking-wide">One recommendation</p><p class="text-[12.5px] mut mt-1">' + esc(E.recommendation) + "</p></div>"
+      : "";
+
+    box.querySelectorAll("[data-play]").forEach((b) =>
+      b.addEventListener("click", () => { closeNotes(); reset(); setTimeout(() => send(b.dataset.play), 60); }));
+    $("#notes").hidden = false;
+  }
+  function field(label, val) {
+    return val ? '<p class="text-[12px] mut mt-2"><span class="font-semibold ink">' + label + ":</span> " + esc(val) + "</p>" : "";
+  }
+  function closeNotes() { $("#notes").hidden = true; }
+
+  /* ---------- persistence ---------- */
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify({ msg: MSG, state: STATE })); } catch (e) {}
+  }
+  function restore() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return false;
+      const d = JSON.parse(raw);
+      if (!d.msg || !d.msg.length) return false;
+      MSG = d.msg; STATE = Object.assign(window.RocketDialog.newState(), d.state || {});
+      paint();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function reset() {
+    MSG = []; STATE = window.RocketDialog.newState(); LAST = null;
+    localStorage.removeItem(KEY);
+    paint(); paintQuick([]); $("#intro").hidden = false;
+    $("#msg").value = ""; closeDrawer();
+  }
+
+  /* ---------- input ---------- */
+  function autosize() {
+    const t = $("#msg");
+    t.style.height = "auto";
+    t.style.height = Math.min(t.scrollHeight, 128) + "px";
+  }
+
+  function boot() {
+    $("#composer").addEventListener("submit", (e) => { e.preventDefault(); send($("#msg").value); });
+    $("#msg").addEventListener("input", autosize);
+    $("#msg").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#msg").value); }
+    });
+    $("#newChat").addEventListener("click", reset);
+    $("#notesBtn").addEventListener("click", openNotes);
+    $("#notesClose").addEventListener("click", closeNotes);
+    $("#analystBtn").addEventListener("click", () => ($("#drawer").hidden ? openDrawer() : closeDrawer()));
+    $("#drawerClose").addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeNotes(); } });
+
+    const intro = [
+      "My internet is dead since this morning",
+      "Do you cover Observatory?",
+      "I want fibre installed",
+      "Why was I billed after cancelling?",
     ];
-    card.innerHTML = `
-      <div class="flex items-center gap-2 mb-2">
-        <span class="text-[10px] gold tracking-widest">0${i + 1}</span>
-        <span class="badge" style="background:rgba(14,165,222,.12);color:#0b7ea8">${c.tag}</span>
-      </div>
-      <h3 class="text-[13.5px] font-semibold mb-3">${c.title}</h3>
-      <div class="space-y-2.5 text-[12px] flex-1">
-        ${rows.map(([k, v]) => `<div><p class="dim text-[10px] uppercase tracking-wide mb-0.5">${k}</p><p class="mut leading-relaxed">${v}</p></div>`).join("")}
-      </div>
-      <button class="mt-4 w-full rounded-xl py-2 text-[12px] font-semibold" style="background:#eef4f8;border:1px solid var(--line);color:#0b7ea8">Run this in the prototype</button>`;
-    card.querySelector("button").addEventListener("click", () => {
-      showTab("prototype");
-      $("#chat").innerHTML = "";
-      setTimeout(() => send(c.message), 250);
+    const iq = $("#introQuick");
+    intro.forEach((t) => {
+      const b = document.createElement("button");
+      b.className = "ghost px-3 py-1.5 text-[12.5px]";
+      b.textContent = t;
+      b.addEventListener("click", () => send(t));
+      iq.appendChild(b);
     });
-    box.appendChild(card);
-  });
-}
 
-/* ---------- how it works ---------- */
-function renderHow() {
-  const steps = [
-    ["Read the message", "A language model works out what the customer actually wants: a fault, a bill, a booking, or a cancellation. This is the only step where wording is guessed at, which is why it carries the confidence score."],
-    ["Pull what is specific", "Suburb, account reference, package, address. Nothing else is collected, because data that is never gathered cannot leak."],
-    ["Answer from approved content only", "Prices, coverage and outage detail come from the knowledge base and the live status feed. The assistant has no memory to invent a price from."],
-    ["Check itself before replying", "Six guardrails run on every reply: approved prices, no promised dates, identity before account detail, money-moving actions, data minimisation, and telling the customer it is an AI."],
-    ["Answer, act, or hand over", "Below 55% confidence, or on any mandatory handover trigger, a person takes the thread with a written summary attached."],
-  ];
-  const box = $("#pipeline");
-  box.innerHTML = "";
-  steps.forEach(([title, body], i) => {
-    const row = el("div", "flex gap-3");
-    row.innerHTML = `
-      <div class="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-[11px] font-bold" style="background:#eef4f8;color:#0b7ea8;border:1px solid var(--line)">${i + 1}</div>
-      <div class="min-w-0"><p class="text-[12.5px] font-medium ink">${title}</p><p class="text-[12px] mut leading-relaxed">${body}</p></div>`;
-    box.appendChild(row);
-  });
+    // Voice input, when the browser offers it. Degrades silently otherwise.
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const mic = $("#mic");
+    if (!SR) { mic.style.display = "none"; }
+    else {
+      mic.addEventListener("click", () => {
+        const r = new SR();
+        r.lang = "en-ZA"; r.interimResults = false;
+        r.onresult = (e) => { $("#msg").value = e.results[0][0].transcript; autosize(); send($("#msg").value); };
+        r.start();
+      });
+    }
 
-  const guards = [
-    ["Approved price list", "It may only quote figures that exist in the approved list."],
-    ["No promised dates", "It offers installation slots; it never guarantees a date."],
-    ["Identity before account access", "No account detail without verification."],
-    ["Money-moving actions", "Refunds and credits leave the assistant, always."],
-    ["POPIA data minimisation", "It never asks for ID numbers or card details in chat."],
-    ["Told it is an AI", "The customer is told, and can reach a person at any point."],
-  ];
-  const gl = $("#guard-list");
-  gl.innerHTML = "";
-  guards.forEach(([name, body]) => {
-    const li = el("li", "");
-    li.innerHTML = `<span class="olive font-bold">✓</span> <span class="ink">${name}</span><span class="dim"> — ${body}</span>`;
-    gl.appendChild(li);
-  });
-}
+    if (restore()) $("#intro").hidden = true;
+    else $("#intro").hidden = false;
+    autosize();
+  }
 
-/* ---------- evaluation ---------- */
-function renderEval() {
-  const fill = (id, items) => {
-    const box = $(id);
-    box.innerHTML = "";
-    items.forEach((it) => {
-      const d = el("div", "card-2 p-3.5");
-      d.innerHTML = `<p class="text-[12.5px] font-medium ink mb-1">${it.title}</p><p class="text-[12px] mut leading-relaxed">${it.body}</p>`;
-      box.appendChild(d);
-    });
-  };
-  fill("#benefits", EVALUATION.benefits);
-  fill("#limits", EVALUATION.limitations);
-  fill("#ethics", EVALUATION.ethics);
-
-  const ol = $("#oversight");
-  ol.innerHTML = "";
-  EVALUATION.oversight.forEach((o) => {
-    const li = el("li", "flex gap-2 text-[12px]");
-    li.innerHTML = `<span class="gold font-bold shrink-0">·</span><span class="mut leading-relaxed">${o}</span>`;
-    ol.appendChild(li);
-  });
-
-  $("#recommendation").innerHTML = `<p class="text-[12.5px] font-medium ink mb-1">${EVALUATION.recommendation.title}</p><p class="text-[12px] mut leading-relaxed">${EVALUATION.recommendation.body}</p>`;
-}
-
-/* ---------- boot ---------- */
-function boot() {
-  renderScenarios();
-  renderCases();
-  renderHow();
-  renderEval();
-  renderMetrics();
-
-  const opening = [
-    "Hi, you are chatting with RocketAssist, RocketNet's AI assistant. I can check outages, explain a bill, or book an installation.",
-    "If you would rather speak to a person, say “human” at any time and I will hand you over.",
-  ];
-  opening.forEach((t) => bubble(t, "bot"));
-
-  $("#composer").addEventListener("submit", (e) => {
-    e.preventDefault();
-    send($("#msg").value);
-  });
-  $("#reset").addEventListener("click", () => {
-    $("#chat").innerHTML = "";
-    opening.forEach((t) => bubble(t, "bot"));
-    $("#verdict").className = "badge v-deflect";
-    $("#verdict").textContent = "waiting";
-    $("#confidence").classList.add("hide");
-    $("#trace").innerHTML = "";
-    $("#guards").innerHTML = "";
-    $("#knowledge").innerHTML = "";
-    $("#handover-card").classList.add("hide");
-    Object.assign(METRICS, { handled: 0, deflect: 0, convert: 0, escalate: 0, replyMs: 0 });
-    renderMetrics();
-  });
-
-  const hash = (location.hash || "").replace("#", "");
-  showTab(TABS.includes(hash) ? hash : "prototype");
-}
-
-document.addEventListener("DOMContentLoaded", boot);
+  window.RocketUI = { reset, send };
+  document.addEventListener("DOMContentLoaded", boot);
+})();

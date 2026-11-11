@@ -113,6 +113,16 @@ function composeReply(intent, ent, decision, text) {
   const lines = [];
   const lower = text.toLowerCase();
 
+  if (decision.kind === "missing_suburb") {
+    lines.push("I can check that in seconds, I just need one detail.");
+    lines.push("Which suburb are you in?");
+    return lines;
+  }
+  if (decision.kind === "missing_account") {
+    lines.push("I can go through that with you, but I won't discuss an account until I know which one it is.");
+    lines.push("What is your account number? It starts with RA- and it's on your invoice.");
+    return lines;
+  }
   if (decision.kind === "outage") {
     lines.push(`I can see a problem in ${cap(ent.suburb)} that is not yours to fix.`);
     lines.push(`The network team has logged: ${OUTAGES[ent.suburb].cause}. Estimated back online around ${OUTAGES[ent.suburb].eta}.`);
@@ -199,6 +209,9 @@ function analyse(text) {
     });
     if (ent.suburb) knowledge.push({ title: "Coverage table", detail: `${cap(ent.suburb)} coverage: ${COVERAGE[ent.suburb]}.` });
   }
+  if (top.id === "billing" && !ent.account) {
+    knowledge.push({ title: "Billing rules", detail: "An account number is required before any account detail is discussed." });
+  }
   if (top.id === "billing") {
     knowledge.push({ title: "Billing rules", detail: "Final invoice is prorated to the cancellation date; refunds are outside the assistant's authority." });
   }
@@ -216,6 +229,8 @@ function analyse(text) {
   let decision;
   if (top.id === "human" || hardStop === "ombudsman" || hardStop === "lawyer" || hardStop === "legal" || hardStop === "social media") {
     decision = { verdict: "escalate", kind: top.id === "human" ? "human" : "cancel_risk", reason: hardStop ? `Mentions ${hardStop}, which always goes to a person.` : "Customer asked for a person." };
+  } else if (/bill|billed|invoice|charge|charged|debit/.test(lower) && !ent.account) {
+    decision = { verdict: "escalate", kind: "missing_account", reason: "Billing question without an account reference, so ask for it before discussing money." };
   } else if (top.id === "cancel" && /bill|billed|invoice|charge|charged|debit/.test(lower) && ent.account) {
     // A bill complaint that mentions leaving is a billing question first: explain the
     // charge, then hand the money decision to a person.
@@ -231,14 +246,15 @@ function analyse(text) {
   } else if (top.id === "outage") {
     if (ent.suburb && OUTAGES[ent.suburb]) decision = { verdict: "deflect", kind: "outage", reason: "A logged outage explains it, so no ticket is needed." };
     else if (ent.suburb) decision = { verdict: "escalate", kind: "fault", reason: "No area fault, so this is a line fault for the network team." };
-    else decision = { verdict: "escalate", kind: "unknown", reason: "No suburb given, so the status feed cannot be checked." };
+    else decision = { verdict: "escalate", kind: "missing_suburb", reason: "One detail is missing: which suburb. Asking beats guessing." };
   } else if (top.id === "install" || top.id === "coverage" || top.id === "pricing") {
     const cov = ent.suburb ? COVERAGE[ent.suburb] : null;
     if (cov === "live") decision = { verdict: "convert", kind: "install", reason: "Coverage confirmed, so the enquiry can be converted on the spot." };
     else if (cov === "survey" || cov === "planned") decision = { verdict: "escalate", kind: "survey", reason: "Coverage is not live, so no installation can be promised." };
-    else decision = { verdict: "escalate", kind: "unknown", reason: "No recognised suburb, so coverage cannot be confirmed." };
+    else if (!ent.suburb) decision = { verdict: "escalate", kind: "missing_suburb", reason: "No suburb yet: ask before checking coverage." };
+    else decision = { verdict: "escalate", kind: "unknown", reason: "Suburb not in the coverage table, so coverage cannot be confirmed." };
   } else if (top.id === "billing") {
-    if (!ent.account) decision = { verdict: "escalate", kind: "unknown", reason: "No account reference, so no billing detail may be shown." };
+    if (!ent.account) decision = { verdict: "escalate", kind: "missing_account", reason: "No account reference yet: ask for it rather than discuss an account blind." };
     else decision = { verdict: "escalate", kind: "billing_explain", reason: "Account questions are answered, but the charge is confirmed by a person." };
   } else {
     decision = { verdict: "escalate", kind: "unknown", reason: "Intent sits outside the approved content." };
