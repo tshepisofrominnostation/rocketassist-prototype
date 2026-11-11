@@ -91,7 +91,7 @@
       state.pending = { text: combined };
       return {
         say: [result.reply[0] + " " + result.reply[1]],
-        quick: quick(SUBURBS().slice(0, 5).map((x) => x.charAt(0).toUpperCase() + x.slice(1))), state,
+        quick: quick(SUBURBS().slice(0, 5).map((x) => x.replace(/\b\w/g, (c) => c.toUpperCase()))), state,
         meta: { confidence: result.intent.confidence, route: "needs one detail" }, card: null
       };
     }
