@@ -98,6 +98,35 @@
         <button id="notesClose" class="ml-auto ghost px-3 py-1.5 text-[12px]">Close</button>
       </div>
       <p class="text-[12.5px] mut mt-1">The three practical examples, and what the assistant does well and badly. Each use case can be played in the chat.</p>
+      <div id="aboutBox" class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="card-2 p-3.5">
+          <h3 class="text-[11.5px] font-bold uppercase tracking-wider blue">The problem</h3>
+          <p class="text-[12.5px] mut mt-1.5 leading-relaxed">RocketNet's small support team absorbs every customer question — invoices, coverage, faults, installations — over WhatsApp, email and phone. Most repeat what is already published; a few are urgent faults or cancellations hidden behind ordinary wording. The queue is worked in the order it arrives, so the customer about to cancel waits behind someone asking for an invoice copy.</p>
+        </div>
+        <div class="card-2 p-3.5">
+          <h3 class="text-[11.5px] font-bold uppercase tracking-wider blue">Who uses it</h3>
+          <ul class="text-[12.5px] mut mt-1.5 space-y-1 leading-relaxed">
+            <li><strong class="ink">Customers</strong> — an answer at 21:00 on a Sunday, on WhatsApp or the website, without holding for an agent.</li>
+            <li><strong class="ink">Support agents</strong> — each ticket arrives with a suggested reply, the account details and a written summary.</li>
+            <li><strong class="ink">Operations manager</strong> — a daily view of what customers ask and where the assistant had to hand over.</li>
+          </ul>
+        </div>
+        <div class="card-2 p-3.5 sm:col-span-2">
+          <h3 class="text-[11.5px] font-bold uppercase tracking-wider blue">How it works</h3>
+          <ol class="text-[12.5px] mut mt-1.5 space-y-1 leading-relaxed list-decimal pl-4">
+            <li>The customer asks in their own words, on whichever channel they already use.</li>
+            <li>The assistant reads the intent and pulls out the details: suburb, account, address, package. If a detail is missing it asks, rather than guessing.</li>
+            <li>It answers only from approved content — packages, the coverage table, the live network status feed and the billing rules.</li>
+            <li>Six guardrails check the reply before it leaves: approved prices only, no promised installation dates, no account changes without verification.</li>
+            <li>It answers, books, or hands over to the right team with the whole conversation attached, so the customer never repeats themselves.</li>
+          </ol>
+        </div>
+        <div class="card-2 p-3.5 sm:col-span-2">
+          <h3 class="text-[11.5px] font-bold uppercase tracking-wider blue">Why it is realistic</h3>
+          <p class="text-[12.5px] mut mt-1.5 leading-relaxed">It is built on content RocketNet already publishes, needs no new hardware, and drops into the WhatsApp and web channels they already run. When confidence is low it degrades to a person instead of inventing an answer. Under POPIA it collects the minimum, verifies identity before any account action, and logs every conversation for review. This prototype runs entirely in a browser with no API keys or live customer data, so it can be shown anywhere — including a classroom with no internet.</p>
+        </div>
+      </div>
+
       <div id="casesBox" class="mt-4 space-y-3"></div>
       <h3 class="text-[13.5px] font-bold mt-6">Evaluation</h3>
       <div id="evalBox" class="mt-3 space-y-3"></div>
