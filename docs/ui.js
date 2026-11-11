@@ -18,7 +18,7 @@
     col.className = "max-w-[88%] space-y-1";
 
     const b = document.createElement("div");
-    b.className = (m.who === "user" ? "bubble-user" : "bubble-bot") +
+    b.className = (m.who === "user" ? "bubble-user" : m.who === "agent" ? "bubble-agent" : "bubble-bot") +
       " rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap";
     b.textContent = m.text;
     col.appendChild(b);
@@ -101,7 +101,22 @@
       if (res.meta) MSG[MSG.length - 1].meta = res.meta;
       save();  // keep the transcript as it lands, not only at the end
     }
-    if (res.card) { MSG.push({ who: "bot", text: "", card: res.card }); $("#chat").appendChild(bubble(MSG[MSG.length - 1])); }
+    if (res.card) {
+      MSG.push({ who: "bot", text: "", card: res.card });
+      $("#chat").appendChild(bubble(MSG[MSG.length - 1]));
+      if (window.RocketStore) {
+        window.RocketStore.create({
+          ref: STATE.ticket,
+          owner: res.card.data.owner || "Support agent",
+          priority: res.card.data.priority || "Normal",
+          summary: res.card.data.summary || "",
+          suburb: (LAST && LAST.entities && LAST.entities.suburb) || null,
+          account: (LAST && LAST.entities && LAST.entities.account) || null,
+          transcript: MSG.slice(-5).map((m) => ({ who: m.who, text: m.text })).filter((m) => m.text),
+        });
+        if (window.RocketAgent) window.RocketAgent.badge();
+      }
+    }
 
     paint();
     paintQuick(res.quick || []);
@@ -269,6 +284,30 @@
     autosize();
   }
 
-  window.RocketUI = { reset, send };
-  document.addEventListener("DOMContentLoaded", boot);
+  function showView(which) {
+    const agent = which === "agent";
+    $("#viewCustomer").hidden = agent;
+    $("#viewAgent").hidden = !agent;
+    $("#composer").style.display = agent ? "none" : "";
+    $("#tabCustomer").setAttribute("aria-selected", String(!agent));
+    $("#tabAgent").setAttribute("aria-selected", String(agent));
+    if (agent && window.RocketAgent) window.RocketAgent.paint();
+  }
+
+  // an agent replying in another tab shows up here without a reload
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "rocketassist.v2" || !e.newValue) return;
+    try {
+      const d = JSON.parse(e.newValue);
+      if (Array.isArray(d.msg)) { MSG = d.msg; paint(); scrollDown(); }
+    } catch (err) { }
+  });
+
+  window.RocketUI = { reset, send, showView };
+  document.addEventListener("DOMContentLoaded", () => {
+    boot();
+    const c = $("#tabCustomer"), a = $("#tabAgent");
+    if (c) c.addEventListener("click", () => showView("customer"));
+    if (a) a.addEventListener("click", () => showView("agent"));
+  });
 })();
