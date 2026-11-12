@@ -11,7 +11,7 @@ const INTENTS = [
   { id: "cancel", label: "Cancellation risk", kw: { "cancel": 5, "cancelled": 5, "leaving": 4, "moving to another": 5, "switch provider": 5, "ombudsman": 5, "lawyer": 5, "complaint": 3 } },
   { id: "coverage", label: "Coverage check", kw: { "coverage": 4, "cover": 3, "available": 2, "in my area": 3, "live in": 1, "street": 1 } },
   { id: "pricing", label: "Pricing question", kw: { "price": 4, "cost": 3, "how much": 3, "per month": 2, "packages": 2 } },
-  { id: "human", label: "Asked for a person", kw: { "human": 5, "agent": 3, "speak to someone": 5, "real person": 5, "call me": 3, "manager": 4 } },
+  { id: "agent", label: "Asked for a person", kw: { "human": 5, "agent": 3, "speak to someone": 5, "real person": 5, "call me": 3, "manager": 4 } },
 ];
 
 const ESCALATE_ALWAYS = ["cancel", "ombudsman", "lawyer", "legal", "social media", "refund", "dispute"];
@@ -154,7 +154,7 @@ function composeReply(intent, ent, decision, text) {
   }
 
   if (decision.kind !== "human") {
-    lines.push("If you would rather speak to a person at any point, say 'human' and I will hand over.");
+    lines.push("If you would rather speak to a person at any point, say 'agent' and I will hand over.");
   }
   return lines;
 }

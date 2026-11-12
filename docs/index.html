@@ -65,23 +65,74 @@
 </header>
 
 <main class="flex-1 w-full" id="viewCustomer">
+
+  <section id="customerDetails" class="mx-auto max-w-3xl px-4 pt-8 pb-6">
+    <div class="card p-6">
+      <h2 class="text-lg font-bold">Before we get started</h2>
+      <p class="text-sm mut mt-1 mb-5">
+        Please provide your details so our support team can assist you.
+      </p>
+
+      <form id="customerDetailsForm" class="space-y-4">
+        <div>
+          <label for="customerName" class="block text-sm font-medium mb-1">Full name</label>
+          <input id="customerName" name="fullName" type="text"
+            autocomplete="name" required
+            class="w-full rounded-xl border px-3 py-2.5 text-sm"
+            style="border-color:var(--line)" placeholder="Enter your full name">
+        </div>
+
+        <div>
+          <label for="customerPhone" class="block text-sm font-medium mb-1">Contact number</label>
+          <input id="customerPhone" name="phone" type="tel"
+            autocomplete="tel" required
+            class="w-full rounded-xl border px-3 py-2.5 text-sm"
+            style="border-color:var(--line)" placeholder="e.g. 082 123 4567">
+        </div>
+
+        <div>
+          <label for="customerEmail" class="block text-sm font-medium mb-1">Email address</label>
+          <input id="customerEmail" name="email" type="email"
+            autocomplete="email" required
+            class="w-full rounded-xl border px-3 py-2.5 text-sm"
+            style="border-color:var(--line)" placeholder="you@example.com">
+        </div>
+
+        <div>
+          <label for="customerSuburb" class="block text-sm font-medium mb-1">Suburb / area</label>
+          <input id="customerSuburb" name="suburb" type="text"
+            autocomplete="address-level2" required
+            class="w-full rounded-xl border px-3 py-2.5 text-sm"
+            style="border-color:var(--line)" placeholder="Enter your suburb or area">
+        </div>
+
+        <button type="submit" class="btn w-full py-3 text-sm">
+          Continue to chat
+        </button>
+
+        <p class="text-xs dim text-center">
+          This is a demonstration prototype. Please don't enter real personal information.
+        </p>
+      </form>
+    </div>
+  </section>
+
+
   <div class="mx-auto max-w-3xl px-4 pt-5 pb-40">
 
-    <section id="intro" class="card p-5 mb-5">
+    <section id="intro" hidden class="card p-5 mb-5">
       <h2 class="text-[17px] font-bold">Hi, I'm RocketAssist.</h2>
       <p class="text-[13px] mut mt-1 max-w-lg">I can check whether your area has a fault, tell you if we cover your street, book an installation, or explain a charge. If I can't help, I'll hand you to a person with your details attached.</p>
       <div id="introQuick" class="flex flex-wrap gap-2 mt-4"></div>
-      <p class="text-[11.5px] dim mt-4">No account changes are made without verification. You can ask for a human at any time.</p>
+      <p class="text-[11.5px] dim mt-4">No account changes are made without verification. You can ask for an agent at any time.</p>
     </section>
 
-    <div id="chat" aria-live="polite" class="space-y-3"></div>
-    <div id="quick" class="flex flex-wrap gap-2 mt-4"></div>
+    <div id="chat" hidden aria-live="polite" class="space-y-3"></div>
+    <div id="quick" hidden class="flex flex-wrap gap-2 mt-4"></div>
   </div>
 </main>
 
-
-
-<form id="composer" class="fixed bottom-0 inset-x-0 border-t backdrop-blur" style="border-color:var(--line);background:rgba(255,255,255,.92)">
+<form id="composer" hidden class="fixed bottom-0 inset-x-0 border-t backdrop-blur" style="border-color:var(--line);background:rgba(255,255,255,.92)">
   <div class="mx-auto max-w-3xl px-4 py-3">
     <div class="flex items-end gap-2">
       <label for="msg" class="sr-only">Message RocketAssist</label>

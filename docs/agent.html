@@ -10,21 +10,21 @@
 
   <style>
     :root {
-      --bg: #f4f8fb;
+      --bg: #101b2d;
       --surface: #ffffff;
-      --surface-2: #eef4f8;
-      --line: #dbe6ee;
+      --surface-2: #f1f5f9;
+      --line: #dbe3ed;
       --ink: #243746;
-      --mut: #5b7285;
-      --dim: #5f7688;
+      --mut: #64748b;
+      --dim: #64748b;
       --blue: #0ea5de;
-      --blue-deep: #0b7ea8;
-      --blue-dark: #0a7396;
+      --blue-deep: #087da8;
+      --blue-dark: #075d80;
     }
 
     html, body {
       background: var(--bg);
-      color: var(--ink);
+      color: #f8fafc;
     }
 
     body {
@@ -33,6 +33,7 @@
 
     .card, .card-2 {
       background: var(--surface);
+      color: var(--ink);
       border: 1px solid var(--line);
       border-radius: 16px;
       min-width: 0;
@@ -77,6 +78,21 @@
       font-size: 11px;
       color: var(--dim);
     }
+
+    .login-input {
+      width: 100%;
+      border: 1px solid #dbe3ed;
+      border-radius: 10px;
+      padding: 11px 12px;
+      color: #243746;
+      background: #f8fafc;
+      outline: none;
+    }
+
+    .login-input:focus {
+      border-color: #0ea5de;
+      box-shadow: 0 0 0 3px rgba(14,165,222,.15);
+    }
   </style>
 </head>
 
@@ -84,7 +100,7 @@
 
   <!-- Header -->
   <header class="border-b"
-    style="border-color:var(--line);background:var(--surface)">
+    style="border-color:#26364d;background:#17263c">
 
     <div class="mx-auto max-w-5xl px-4 py-3 flex items-center gap-3 flex-wrap">
 
@@ -94,8 +110,10 @@
       </div>
 
       <div>
-        <h1 class="text-[15px] font-bold">RocketAssist</h1>
-        <p class="text-[11.5px] mut">RocketNet support · Agent dashboard</p>
+        <h1 class="text-[15px] font-bold text-white">RocketAssist</h1>
+        <p class="text-[11.5px]" style="color:#a9bbcf">
+          RocketNet support · Agent dashboard
+        </p>
       </div>
 
       <div class="ml-auto flex items-center gap-2">
@@ -104,18 +122,92 @@
           Customer page
         </a>
 
-        <span class="badge v-convert">Agent desk</span>
+        <span id="agentBadge" class="badge v-convert">Agent desk</span>
+
+        <button id="logoutBtn"
+          class="hidden rounded-full px-3 py-2 text-[12px] font-semibold text-white"
+          style="background:#33465f">
+          Log out
+        </button>
       </div>
 
     </div>
   </header>
 
+  <!-- Admin login -->
+  <main id="loginView"
+    class="flex-1 flex items-center justify-center px-4 py-12">
+
+    <section class="w-full max-w-md rounded-2xl p-7 shadow-xl"
+      style="background:#ffffff;color:#243746">
+
+      <div class="text-center mb-6">
+        <div class="mx-auto h-12 w-12 rounded-xl flex items-center justify-center mb-4"
+          style="background:#087da8">
+          <span class="text-white text-xl font-bold">R</span>
+        </div>
+
+        <h2 class="text-xl font-bold">Admin login</h2>
+        <p class="text-sm mt-1" style="color:#64748b">
+          Sign in to access the RocketAssist agent desk.
+        </p>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+
+        <div>
+          <label for="username"
+            class="block text-xs font-semibold mb-1.5">
+            Username
+          </label>
+          <input id="username" name="username"
+            class="login-input"
+            type="text"
+            placeholder="Enter your username"
+            autocomplete="username"
+            required />
+        </div>
+
+        <div>
+          <label for="password"
+            class="block text-xs font-semibold mb-1.5">
+            Password
+          </label>
+          <input id="password" name="password"
+            class="login-input"
+            type="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required />
+        </div>
+
+        <p id="loginError"
+          class="hidden text-sm text-red-600"
+          role="alert">
+          Incorrect username or password. Please try again.
+        </p>
+
+        <button type="submit"
+          class="w-full rounded-xl py-3 text-sm font-semibold text-white"
+          style="background:#087da8">
+          Sign in
+        </button>
+
+      </form>
+
+      <p class="text-center text-xs mt-5" style="color:#94a3b8">
+        RocketAssist · Admin access
+      </p>
+    </section>
+  </main>
+
   <!-- Agent dashboard -->
-  <main class="flex-1 w-full mx-auto max-w-5xl px-4 pb-12 pt-6">
+  <main id="dashboardView"
+    class="hidden flex-1 w-full mx-auto max-w-5xl px-4 pb-12 pt-6">
 
     <div class="flex items-baseline gap-2 mb-4 flex-wrap">
-      <h2 class="text-[17px] font-bold">Agent dashboard</h2>
-      <p class="text-[12px] mut">
+      <h2 class="text-[17px] font-bold text-white">Agent dashboard</h2>
+      <p class="text-[12px]" style="color:#a9bbcf">
         Manage customer handovers and support requests.
       </p>
     </div>
@@ -124,13 +216,17 @@
 
       <!-- Ticket queue -->
       <section>
-        <h3 class="text-[12px] font-bold mb-2">Customer tickets</h3>
+        <h3 class="text-[12px] font-bold mb-2 text-white">
+          Customer tickets
+        </h3>
         <div id="queue" class="space-y-2 min-w-0"></div>
       </section>
 
       <!-- Ticket details -->
       <section>
-        <h3 class="text-[12px] font-bold mb-2">Ticket details</h3>
+        <h3 class="text-[12px] font-bold mb-2 text-white">
+          Ticket details
+        </h3>
         <div id="ticketDetail" class="min-w-0"></div>
       </section>
 
