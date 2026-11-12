@@ -4,6 +4,8 @@
   const $ = (s) => document.querySelector(s);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const KEY = "rocketassist.v2";
+  const PROFILE_KEY = "rocketassist.customer";
+  let CUSTOMER = null;
 
   let STATE = window.RocketDialog.newState();
   let MSG = [];            // {who, text, meta, card}
@@ -41,7 +43,7 @@
     el.className = "card mt-2 p-3.5";
     el.innerHTML =
       '<div class="flex items-center gap-2 mb-1.5">' +
-        '<span class="chip v-escalate">Passed to a person</span>' +
+        '<span class="chip v-escalate">Passed to an agent</span>' +
         (d.priority ? '<span class="meta">' + esc(d.priority) + ' priority</span>' : "") +
       "</div>" +
       '<p class="text-[12.5px] font-semibold">' + esc(d.owner || d.team || "Support team") + "</p>" +
@@ -52,6 +54,38 @@
   }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function showCustomerChat() {
+  $("#customerDetails").hidden = true;
+  $("#intro").hidden = false;
+  $("#chat").hidden = false;
+  $("#quick").hidden = false;
+  $("#composer").hidden = false;
+}
+
+function showCustomerForm() {
+  $("#customerDetails").hidden = false;
+  $("#intro").hidden = true;
+  $("#chat").hidden = true;
+  $("#quick").hidden = true;
+  $("#composer").hidden = true;
+}
+
+  function appendToTicket(message, customerReply) {
+    if (!STATE.ticket || !window.RocketStore) return;
+
+    window.RocketStore.appendTranscript(
+      STATE.ticket,
+      {
+        who: message.who,
+        text: message.text,
+        at: new Date().toISOString()
+      },
+      { customerReply: Boolean(customerReply) }
+    );
+
+    if (window.RocketAgent) window.RocketAgent.badge();
+  }
 
   function paint() {
     const chat = $("#chat");
@@ -78,6 +112,11 @@
     if (!clean || busy) return;
     busy = true;
     MSG.push({ who: "user", text: clean });
+
+    if (STATE.escalated) {
+      appendToTicket({who: "user", text: clean}, true);
+    }
+
     paint();
     save();  // persist immediately: a reload mid-reply must not lose the question
     $("#quick").innerHTML = "";
@@ -98,22 +137,39 @@
       $("#chat").appendChild(node);
       await stream(node.querySelector(".bubble-bot"), line);
       MSG[MSG.length - 1].text = line;
-      if (res.meta) MSG[MSG.length - 1].meta = res.meta;
+      //Keep the ticket transcript synchronised after handover
+      if (STATE.escalated && !res.card){
+        appendToTicket({who: "bot", text: line}, false);
+      }
+
       save();  // keep the transcript as it lands, not only at the end
     }
     if (res.card) {
       MSG.push({ who: "bot", text: "", card: res.card });
       $("#chat").appendChild(bubble(MSG[MSG.length - 1]));
       if (window.RocketStore) {
-        window.RocketStore.create({
-          ref: STATE.ticket,
-          owner: res.card.data.owner || "Support agent",
-          priority: res.card.data.priority || "Normal",
-          summary: res.card.data.summary || "",
-          suburb: (LAST && LAST.entities && LAST.entities.suburb) || null,
-          account: (LAST && LAST.entities && LAST.entities.account) || null,
-          transcript: MSG.slice(-5).map((m) => ({ who: m.who, text: m.text })).filter((m) => m.text),
-        });
+        const existingTicket = window.RocketStore.read().some(
+        (ticket) => ticket.ref === STATE.ticket
+        );
+
+        if (!existingTicket) {
+          window.RocketStore.create({
+            ref: STATE.ticket,
+            customer: CUSTOMER,
+            owner: res.card.data.owner || res.card.data.team ||  "Support agent",
+            priority: res.card.data.priority || "Normal",
+            summary: res.card.data.summary || "",
+            suburb: (LAST && LAST.entities && LAST.entities.suburb) || null,
+            account: (LAST && LAST.entities && LAST.entities.account) || null,
+            transcript: MSG
+              .map((m) => ({
+                who: m.who,
+                text: m.text,
+                at: new Date().toISOString()
+              }))
+              .filter((m) => m.text),
+          });
+        }
         if (window.RocketAgent) window.RocketAgent.badge();
       }
     }
@@ -225,10 +281,22 @@
   }
 
   function reset() {
-    MSG = []; STATE = window.RocketDialog.newState(); LAST = null;
+    MSG = [];
+    STATE = window.RocketDialog.newState();
+    LAST = null;
+
     localStorage.removeItem(KEY);
-    paint(); paintQuick([]); $("#intro").hidden = false;
-    $("#msg").value = ""; closeDrawer();
+
+    paint();
+    paintQuick([]);
+    $("#msg").value = "";
+    closeDrawer();
+
+    if (CUSTOMER) {
+      showCustomerChat();
+    } else {
+      showCustomerForm();
+    }
   }
 
   /* ---------- input ---------- */
@@ -239,6 +307,28 @@
   }
 
   function boot() {
+        $("#customerDetailsForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      CUSTOMER = {
+        fullName: $("#customerName").value.trim(),
+        phone: $("#customerPhone").value.trim(),
+        email: $("#customerEmail").value.trim(),
+        suburb: $("#customerSuburb").value.trim()
+      };
+
+      if (!CUSTOMER.fullName || !CUSTOMER.phone ||
+          !CUSTOMER.email || !CUSTOMER.suburb) {
+        return;
+      }
+
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(CUSTOMER));
+
+      showCustomerChat();
+      paint();
+      scrollDown();
+    });
+
     $("#composer").addEventListener("submit", (e) => { e.preventDefault(); send($("#msg").value); });
     $("#msg").addEventListener("input", autosize);
     $("#msg").addEventListener("keydown", (e) => {
@@ -279,8 +369,24 @@
       });
     }
 
-    if (restore()) $("#intro").hidden = true;
-    else $("#intro").hidden = false;
+        // Restore saved customer details.
+    try {
+      const savedCustomer = localStorage.getItem(PROFILE_KEY);
+      CUSTOMER = savedCustomer ? JSON.parse(savedCustomer) : null;
+    } catch (e) {
+      CUSTOMER = null;
+    }
+
+    if (CUSTOMER) {
+      showCustomerChat();
+
+      if (restore()) {
+        $("#intro").hidden = true;
+      }
+    } else {
+      showCustomerForm();
+    }
+
     autosize();
   }
 
